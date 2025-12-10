@@ -1,0 +1,16 @@
+{
+    "name": "contracts",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "compile": "hardhat compile",
+        "test": "hardhat test",
+        "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
+        "deploy": "hardhat run scripts/deploy.ts"
+    },
+    "devDependencies": {
+        "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+        "hardhat": "^2.18.0",
+        "typescript": "^5.0.0"
+    }
+}
