@@ -1,0 +1,32 @@
+name: CI Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Use Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
+        cache: 'npm'
+
+    - name: Install Dependencies
+      run: npm run bootstrap
+
+    - name: Build Backend
+      run: npm --prefix backend run build
+
+    - name: Build Frontend
+      run: npm --prefix frontend run build
+
+    - name: Compile Contracts
+      run: npm --prefix contracts run compile
