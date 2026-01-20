@@ -4,6 +4,14 @@ import util from 'tweetnacl-util';
 export function decodeBase64(s: string) { return util.decodeBase64(s); }
 export function encodeBase64(b: Uint8Array) { return util.encodeBase64(b); }
 
+export function generateKeyPair() {
+    const kp = nacl.box.keyPair();
+    return {
+        publicKey: encodeBase64(kp.publicKey),
+        secretKey: encodeBase64(kp.secretKey)
+    };
+}
+
 // encrypt plaintext string using recipient's publicKey (base64) and sender's secretKey (base64)
 export async function encryptForRecipient(senderSecretBase64: string, recipPublicBase64: string, plaintext: string) {
     const senderSecret = decodeBase64(senderSecretBase64);

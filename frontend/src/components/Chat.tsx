@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import io from 'socket.io-client';
 import axios from 'axios';
-import { decodeBase64, encodeBase64, encryptForRecipient, decryptWithSecretKey } from '../utils/cryptoClient';
+import { encryptForRecipient } from '../utils/cryptoClient';
 
 const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:4000');
 
-export default function Chat({ wallet, token }: { wallet: string, token: string }) {
+export default function Chat({ wallet }: { wallet: string }) {
     const [to, setTo] = useState('');
     const [message, setMessage] = useState('');
     const [inbox, setInbox] = useState<any[]>([]);

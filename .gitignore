@@ -1,8 +1,20 @@
 node_modules/
 .env
-/dist
-/.cache
-/frontend/node_modules
-/backend/node_modules
-/packages
+.env.local
+.env.*.local
+dist/
+build/
+.cache/
+.vercel
 **/*.log
+.vscode/
+
+# Frontend specific
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+
+# Contracts specific
+contracts/artifacts/
+contracts/cache/
+contracts/typechain-types/

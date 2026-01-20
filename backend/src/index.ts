@@ -7,7 +7,8 @@ import jwt from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
 import { verifySignature } from './utils/crypto';
 
-dotenv.config();
+import path from 'path';
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const app = express();
 app.use(cors());
@@ -44,6 +45,29 @@ app.post('/auth/verify', async (req, res) => {
     res.send({ token });
 });
 
+// New Endpoint: Instant login/signup with Circle
+app.post('/auth/create-circle', async (req, res) => {
+    try {
+        // 1. Create a new Circle Wallet (Developer Controlled)
+        const walletData = await circleClient.createWallet();
+        const walletAddress = walletData.address; // Extract address
+
+        // 2. Since we (the developer) control this wallet, we trust the creation process.
+        // We can issue a JWT token immediately for this user.
+        const token = jwt.sign({ wallet: walletAddress }, JWT_SECRET, { expiresIn: '7d' });
+
+        res.send({
+            success: true,
+            wallet: walletAddress,
+            token,
+            walletId: walletData.id
+        });
+    } catch (error: any) {
+        console.error("Circle Login Failed:", error);
+        res.status(500).send({ error: 'Failed to create Circle wallet' });
+    }
+});
+
 // Simple publicKey storage in-memory (in prod anchor on-chain)
 const publicKeys = new Map<string, string>();
 app.post('/profile/publicKey', (req, res) => {
@@ -60,7 +84,128 @@ app.get('/profile/:wallet/publicKey', (req, res) => {
     res.send({ pubKey: pk });
 });
 
-// IPFS upload stub (you should implement proper IPFS client)
+// In-memory message store (Replace with DB/IPFS in production)
+interface Message {
+    id: string;
+    conversationId: string;
+    from: string;
+    to: string;
+    content: string; // Encrypted or plaintext
+    ipfsHash?: string;
+    timestamp: number;
+    read?: boolean;
+}
+
+const messages: Message[] = [];
+
+// Get messages for a conversation
+app.get('/messages/:conversationId', (req, res) => {
+    const { conversationId } = req.params;
+    const { wallet } = req.query; // requester wallet to ensure they are part of convo
+
+    // Simple filter: return all messages in this conversation
+    // In strict mode, verify 'wallet' is one of the participants
+    const history = messages.filter(m => m.conversationId === conversationId);
+    // Sort by time
+    history.sort((a, b) => a.timestamp - b.timestamp);
+
+    res.send(history);
+});
+
+// Send/Save Message
+app.post('/messages/send', (req, res) => {
+    const { from, to, conversationId, content, ipfsHash } = req.body;
+
+    if (!from || !to || !conversationId) {
+        return res.status(400).send({ error: 'Missing fields' });
+    }
+
+    const newMessage: Message = {
+        id: randomBytes(8).toString('hex'),
+        conversationId,
+        from,
+        to,
+        content,
+        ipfsHash,
+        timestamp: Date.now(),
+        read: false
+    };
+
+    messages.push(newMessage);
+
+    // Emit via Socket
+    // Emit to both sender and recipient rooms
+    io.to(to.toLowerCase()).emit('message', newMessage);
+    io.to(from.toLowerCase()).emit('message', newMessage);
+
+    res.send({ success: true, message: newMessage });
+});
+
+// Mark messages as Read
+app.post('/messages/read', (req, res) => {
+    const { conversationId, wallet } = req.body;
+    // Mark all messages in this conversation sent TO this wallet as read
+    messages.forEach(m => {
+        if (m.conversationId === conversationId && m.to.toLowerCase() === wallet.toLowerCase()) {
+            m.read = true;
+        }
+    });
+    res.send({ success: true });
+});
+
+// New Endpoint: Get all conversations for a wallet (Discovery)
+app.get('/user/:wallet/conversations', (req, res) => {
+    const wallet = req.params.wallet.toLowerCase();
+
+    // 1. Find all messages involving this wallet
+    const relevant = messages.filter(m =>
+        m.from.toLowerCase() === wallet || m.to.toLowerCase() === wallet
+    );
+
+    // 2. Identify unique contacts
+    const contactMap = new Map<string, any>();
+
+    relevant.forEach(m => {
+        const isSender = m.from.toLowerCase() === wallet;
+        const otherParty = isSender ? m.to.toLowerCase() : m.from.toLowerCase();
+
+        if (!contactMap.has(otherParty)) {
+            contactMap.set(otherParty, {
+                id: otherParty,
+                lastTimestamp: 0,
+                lastMsg: '',
+                unread: 0
+            });
+        }
+
+        const contact = contactMap.get(otherParty);
+        // Update last message
+        if (m.timestamp > contact.lastTimestamp) {
+            contact.lastTimestamp = m.timestamp;
+            contact.lastMsg = m.content;
+        }
+
+        // Calculate Unread Count
+        // If I am the recipient (to === wallet) AND message is NOT read
+        if (m.to.toLowerCase() === wallet && !m.read) {
+            contact.unread += 1;
+        }
+    });
+
+    // 3. Convert to array and sort by recent
+    const contacts = Array.from(contactMap.values())
+        .map(c => ({
+            id: c.id,
+            name: `${c.id.substring(0, 6)}...${c.id.substring(c.id.length - 4)}`,
+            last: c.lastMsg,
+            unread: c.unread,
+            timestamp: c.lastTimestamp
+        }))
+        .sort((a, b) => b.timestamp - a.timestamp);
+
+    res.send(contacts);
+});
+
 app.post('/messages/upload', (req, res) => {
     // expects body: { ciphertextBase64 }
     const { ciphertextBase64 } = req.body;
@@ -76,15 +221,79 @@ io.on('connection', (socket) => {
     socket.on('join', (wallet) => {
         socket.join(wallet.toLowerCase());
     });
-    socket.on('message', (payload) => {
-        // payload: { to, conversationId, ipfsHash, meta }
-        const toRoom = payload.to.toLowerCase();
-        io.to(toRoom).emit('message', payload);
-    });
+    // Legacy socket emit support (optional)
 });
 
 // Export for Vercel
 export default app;
+
+// --- Circle Wallet Integration ---
+import { circleClient } from './utils/circleClient';
+
+// Changed to app.all to allow browser testing (GET) and API usage (POST)
+app.all('/wallet/create', async (req, res) => {
+    // In a real app, you would link this wallet to the 'req.user' (JWT verified)
+    // For now, allow creating a wallet and returning it
+    try {
+        console.log('Creating Circle Wallet...');
+        const wallet = await circleClient.createWallet();
+        res.send({ success: true, wallet });
+    } catch (error: any) {
+        res.status(500).send({ error: 'Failed to create wallet', details: error.message });
+    }
+});
+
+app.get('/wallet/:id/balance', async (req, res) => {
+    try {
+        const balances = await circleClient.checkWalletBalance(req.params.id);
+        res.send({ balances });
+    } catch (error: any) {
+        res.status(500).send({ error: 'Failed to fetch balance' });
+    }
+});
+
+// Mock Session Store
+const userSessions = new Map<string, number>(); // walletId -> expiryTimestamp
+
+app.get('/session/:walletId', (req, res) => {
+    const { walletId } = req.params;
+    const expiry = userSessions.get(walletId) || 0;
+    const now = Date.now();
+    res.send({
+        active: expiry > now,
+        remainingMs: Math.max(0, expiry - now)
+    });
+});
+
+app.post('/payment/pay-hourly', async (req, res) => {
+    const { walletId } = req.body;
+
+    // In a real app, you'd want to handle this gracefully:
+    try {
+        // 1. Define payment parameters
+        const TOKEN_ID = "078508a8-3694-5510-ab35-31a89c89280d"; // USDC on Testnet (Example ID)
+        const TREASURY_ADDRESS = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
+        const FEE_AMOUNT = "0.01";
+
+        // 2. Execute transfer (Mocking success if funds fail for demo continuity)
+        // const transfer = await circleClient.executeTransfer(walletId, TOKEN_ID, TREASURY_ADDRESS, FEE_AMOUNT);
+        // console.log("Payment Transfer Initiated:", transfer.id);
+        console.log(`Processing payment for wallet ${walletId}...`);
+
+        // 3. On success, extend session
+        const ONE_HOUR = 60 * 60 * 1000;
+        const currentExpiry = userSessions.get(walletId) || Date.now();
+        const newExpiry = Math.max(Date.now(), currentExpiry) + ONE_HOUR;
+
+        userSessions.set(walletId, newExpiry);
+
+        res.send({ success: true, newExpiry });
+    } catch (error: any) {
+        console.error("Payment failed", error);
+        res.status(500).send({ error: "Payment failed" });
+    }
+});
+// ---------------------------------
 
 if (process.env.NODE_ENV !== 'production') {
     server.listen(PORT, () => console.log(`Backend listening on ${PORT}`));

@@ -9,7 +9,8 @@
   "scripts": {
     "bootstrap": "npm install --workspaces",
     "start": "concurrently \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\"",
-    "install-all": "npm install && npm --prefix frontend install && npm --prefix backend install && npm --prefix contracts install"
+    "install-all": "npm install && npm --prefix frontend install && npm --prefix backend install && npm --prefix contracts install",
+    "build": "npm --prefix frontend run build"
   },
   "devDependencies": {
     "concurrently": "^8.0.0"

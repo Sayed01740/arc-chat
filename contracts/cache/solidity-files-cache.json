@@ -35,6 +35,77 @@
       "artifacts": [
         "IdentityRegistry"
       ]
+    },
+    "C:\\Users\\sayed\\Arc chat\\contracts\\contracts\\HelloArchitect.sol": {
+      "lastModificationDate": 1768130797370,
+      "contentHash": "d203295d3c7541381f0e39af7ecba08e",
+      "sourceName": "contracts/HelloArchitect.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.19"
+      ],
+      "artifacts": [
+        "HelloArchitect"
+      ]
+    },
+    "C:\\Users\\sayed\\Arc chat\\contracts\\contracts\\SessionManager.sol": {
+      "lastModificationDate": 1768150696433,
+      "contentHash": "1e2d2960a63ee375b0c1545361954267",
+      "sourceName": "contracts/SessionManager.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.19"
+      ],
+      "artifacts": [
+        "IERC20",
+        "SessionManager"
+      ]
     }
   }
 }
