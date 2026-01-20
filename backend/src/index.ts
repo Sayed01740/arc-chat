@@ -272,7 +272,7 @@ app.post('/payment/pay-hourly', async (req, res) => {
     try {
         // 1. Define payment parameters
         const TOKEN_ID = "078508a8-3694-5510-ab35-31a89c89280d"; // USDC on Testnet (Example ID)
-        const TREASURY_ADDRESS = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
+        const TREASURY_ADDRESS = process.env.TREASURY_ADDRESS || "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
         const FEE_AMOUNT = "0.01";
 
         // 2. Execute transfer (Mocking success if funds fail for demo continuity)
